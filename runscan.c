@@ -1,13 +1,27 @@
 #include <stdio.h>
 #include "ext2_fs.h"
 #include "read_ext2.h"
+#include <dirent.h>
+#include <sys/stat.h>
 
 int main(int argc, char **argv) {
 	if (argc != 3) {
 		printf("expected usage: ./runscan inputfile outputfile\n");
-		exit(0);
+		exit(1);
 	}
-	
+
+	DIR *dp = opendir(argv[2]);
+    if (dp != NULL) {
+        printf("error: directory already exists\n");
+        exit(1);
+    } 
+
+    int mkdir_result = mkdir(argv[2], 0777);
+    if (mkdir_result == -1) {
+        printf("error: failed to make new directory\n");
+        exit(1);
+    } 
+
 	int fd;
 
 	fd = open(argv[1], O_RDONLY);    /* open disk image */
@@ -20,9 +34,9 @@ int main(int argc, char **argv) {
 	// example read first the super-block and group-descriptor
 	read_super_block(fd, 0, &super);
 	read_group_desc(fd, 0, &group);
-	
+	 
 	printf("There are %u inodes in an inode table block and %u blocks in the idnode table\n", inodes_per_block, itable_blocks);
-	//iterate the first inode block
+	//iterate the first inode blocki
 	off_t start_inode_table = locate_inode_table(0, &group);
     for (unsigned int i = 0; i < inodes_per_block; i++) {
             printf("inode %u: \n", i);
