@@ -3,6 +3,7 @@
 #include "read_ext2.h"
 #include <dirent.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 int main(int argc, char **argv) {
 	if (argc != 3) {
@@ -32,7 +33,7 @@ int main(int argc, char **argv) {
     struct ext2_group_desc group;
 
     // example read first the super-block and group-descriptor
-   read_super_block(fd, 0, &super);
+    read_super_block(fd, 0, &super);
     read_group_desc(fd, 0, &group); */
 
     for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
@@ -42,9 +43,42 @@ int main(int argc, char **argv) {
         read_group_desc(fd, curr_group, &group);      
         off_t inode_table = locate_inode_table(curr_group, &group);
         for (unsigned int inode_num = 0; inode_num < inodes_per_block; inode_num++) {
-             printf("inode %u: \n", inode_num);
+            printf("inode %u: \n", inode_num);
             struct ext2_inode *inode = malloc(sizeof(struct ext2_inode));
             read_inode(fd, curr_group, inode_table, inode_num, inode);
+            if (S_ISDIR(inode->i_mode)) {
+                // this inode represents a directory
+                printf("inode is a directory\n");
+            }
+            else if (S_ISREG(inode->i_mode)) {
+                printf("inode is a file\n");
+                // this inode represents a regular file
+                char buffer[block_size];
+                buffer[0] = 'h';
+                buffer[1] = 'i';
+                buffer[2] = '\0';
+                printf("buffer before: %s\n", buffer);
+
+                lseek(fd, BLOCK_OFFSET(inode->i_block[0]), SEEK_SET);   
+                int res = read(fd,&buffer,block_size);
+                if (res == -1) {
+                    printf("read error\n");
+                } else {
+                    printf("read success\n");
+                }
+                printf("buffer after: %s\n", buffer);            
+                int is_jpg = 0;
+                if (buffer[0] == (char)0xff && buffer[1] == (char)0xd8 && buffer[2] == (char)0xff &&
+                        (buffer[3] == (char)0xe0 || buffer[3] == (char)0xe1 || buffer[3] == (char)0xe8)) 
+                {
+                    is_jpg = 1;
+                }
+                printf("is_jpg: %d\n", is_jpg);
+            }
+            else {
+                // this inode represents other file types
+                printf("this inode is another type\n");
+            }
         }
     } 
 
