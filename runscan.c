@@ -35,20 +35,48 @@ int main(int argc, char **argv) {
     // example read first the super-block and group-descriptor
     read_super_block(fd, 0, &super);
     read_group_desc(fd, 0, &group); */
-
+    printf("HELLO WORLD!!!\n");
+    printf("num groups: %d\n", num_groups);
+    unsigned int inode_num = 1;
     for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
         struct ext2_super_block super;
         struct ext2_group_desc group;
         read_super_block(fd, curr_group, &super);
         read_group_desc(fd, curr_group, &group);      
         off_t inode_table = locate_inode_table(curr_group, &group);
-        for (unsigned int inode_num = 0; inode_num < inodes_per_block; inode_num++) {
+        for (unsigned int inode_num_group = 0; inode_num_group < inodes_per_block; inode_num_group++) {
+            printf("INODE INFO!!\n");
             printf("inode %u: \n", inode_num);
             struct ext2_inode *inode = malloc(sizeof(struct ext2_inode));
             read_inode(fd, curr_group, inode_table, inode_num, inode);
+            unsigned int i_blocks = inode->i_blocks/(2<<super.s_log_block_size);
+            printf("inode size: %u\n", inode->i_size);
+            printf("inode link count: %u\n", inode->i_links_count);
+            printf("number of blocks: %u\n", i_blocks);
             if (S_ISDIR(inode->i_mode)) {
                 // this inode represents a directory
                 printf("inode is a directory\n");
+                inode->i_block[0]->inode
+                char buffer[block_size];
+                lseek(fd, BLOCK_OFFSET(inode->i_block[0]), SEEK_SET);
+                int res = read(fd,&buffer,block_size);
+                if (res == -1) {
+                    printf("read error\n");
+                } else {
+                    printf("read success\n");
+                }
+
+                dentry = (struct ext2_dir_entry*) & ( buffer[68] );
+
+                int name_len = dentry->name_len & 0xFF; // convert 2 bytes to 4 bytes properly
+
+                char name [EXT2_NAME_LEN];
+                strncpy(name, dentry->name, name_len);
+                name[name_len] = '\0';
+
+                printf("Entry name is --%s--", name);   
+
+
             }
             else if (S_ISREG(inode->i_mode)) {
                 printf("inode is a file\n");
@@ -74,11 +102,13 @@ int main(int argc, char **argv) {
                     is_jpg = 1;
                 }
                 printf("is_jpg: %d\n", is_jpg);
+                // if it is a jpg then we should copy the contens of the file to an output file, using the inode number as the file name eg, 'output/file-18.jpg'
             }
             else {
                 // this inode represents other file types
                 printf("this inode is another type\n");
             }
+            inode_num++;
         }
     } 
 
@@ -114,7 +144,6 @@ int main(int argc, char **argv) {
 
       //  }
 
-       // free(inode);
 
    // }	
 	close(fd);
