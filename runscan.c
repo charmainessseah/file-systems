@@ -5,6 +5,34 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
+
+
+FILE* make_file(char *dir_name, int inode_num) {
+    int num_digits = 0;
+    int n = inode_num;
+    do {
+        n /= 10;
+        num_digits++;
+    } while (n != 0);
+
+    char inode_str[num_digits];
+    sprintf(inode_str, "%d", inode_num);
+    int path_length = strlen(dir_name) + num_digits + 10;
+
+    char path_name[path_length];
+    strcpy(path_name, dir_name);
+    strcat(path_name, "/file-");
+    strcat(path_name, inode_str);
+    strcat(path_name, ".jpg");  
+    FILE *fp = fopen(path_name, "w+");
+    if(fp == NULL)
+    {
+        return NULL;
+    }
+    return fp;
+}
+
 int main(int argc, char **argv) {
 	if (argc != 3) {
 		printf("expected usage: ./runscan inputfile outputfile\n");
@@ -68,28 +96,29 @@ int main(int argc, char **argv) {
                 } else {
     //                printf("read success\n");
                 }
-                struct ext2_dir_entry* dentry; 
-                dentry = (struct ext2_dir_entry*) & ( buffer[68] );
 
-                int name_len = dentry->name_len & 0xFF; // convert 2 bytes to 4 bytes properly
+//                struct ext2_dir_entry* dentry; 
+//                dentry = (struct ext2_dir_entry*) & ( buffer[68] );
+//
+                //int name_len = dentry->name_len & 0xFF; // convert 2 bytes to 4 bytes properly
 //		printf("name length: %d\n", name_len);
-                char name [EXT2_NAME_LEN];
-                strncpy(name, dentry->name, name_len);
-                name[name_len] = '\0';
+//                char name [EXT2_NAME_LEN];
+//                strncpy(name, dentry->name, name_len);
+//                name[name_len] = '\0';
 
 //                printf("Entry name is --%s--", name);   
 
-	       printf("directory inode_num: %d\n", inode_num);
+	      // printf("directory inode_num: %d\n", inode_num);
             }
             else if (S_ISREG(inode->i_mode)) {
-              //  printf("inode is a file\n");
+                //  printf("inode is a file\n");
                 // this inode represents a regular file
                 char buffer[block_size];
-               // buffer[0] = 'h';
-              //  buffer[1] = 'i';
-               // buffer[2] = '\0';
-        //        printf("buffer before: %s\n", buffer);
-		regular_file_count++; 
+                // buffer[0] = 'h';
+                //  buffer[1] = 'i';
+                // buffer[2] = '\0';
+                //        printf("buffer before: %s\n", buffer);
+                regular_file_count++; 
                 lseek(fd, BLOCK_OFFSET(inode->i_block[0]), SEEK_SET);   
                 int res = read(fd,&buffer,block_size);
                 if (res == -1) {
@@ -103,10 +132,37 @@ int main(int argc, char **argv) {
                         (buffer[3] == (char)0xe0 || buffer[3] == (char)0xe1 || buffer[3] == (char)0xe8)) 
                 {
                     is_jpg = 1;
-		    jpg_file_count++; 
-		    printf("is_jpg: %d %d %d\n", is_jpg, inode_num,curr_group);
+                    jpg_file_count++; 
+                    printf("is_jpg: %d %d %d\n", is_jpg, inode_num,curr_group);
+                    FILE *fp = make_file((char *)argv[2], inode_num);
+                    if (fp == NULL) {
+                        exit(1);
+                    }
+                    for(unsigned int i=0; i<EXT2_N_BLOCKS; i++) {
+                        if (inode->i_block[i] == 0) {
+                            break;
+                        }
+                        lseek(fd, BLOCK_OFFSET(inode->i_block[i]), SEEK_SET);
+                        printf("iblock[%d] : %u\n", i, inode->i_block[i]);
+                        int result = read(fd,&buffer,block_size);
+                        if (result == -1) {
+                            printf("read error IBLOCK\n");
+                        } else {
+                            //   printf("read success\n");
+                        }
+                        int results = fputs(buffer, fp);
+                     if (results == EOF) {
+                         // Failed to write do error code here.
+                         printf("error writing result to file\n");
+                         exit(1);
+                     }
+
+
+
+                    }
+                    fclose(fp);
                 }
- //               printf("is_jpg: %d %d\n", is_jpg, inode_num);
+                //               printf("is_jpg: %d %d\n", is_jpg, inode_num);
                 // if it is a jpg then we should copy the contens of the file to an output file, using the inode number as the file name eg, 'output/file-18.jpg'
             }
             else {
@@ -114,8 +170,8 @@ int main(int argc, char **argv) {
                 //printf("this inode is another type\n");
             }
             inode_num++;
-          }
-	}
+        }
+        }
     } 
 
     printf("regular file count: %d\n", regular_file_count); 
