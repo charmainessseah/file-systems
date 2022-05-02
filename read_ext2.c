@@ -11,7 +11,7 @@ unsigned int inodes_per_block = 0;                      /* number of inodes per 
 unsigned int itable_blocks = 0;                         /* size in blocks of the inode table */
 unsigned int blocks_per_group = 0;
 unsigned int num_groups = 0;
-
+unsigned int inodes_per_group = 0;
 
 int debug = 1;          //turn on/off debug prints
 
@@ -32,7 +32,7 @@ void ext2_read_init( int                      fd)
 		itable_blocks = super.s_inodes_per_group / inodes_per_block;		/* size in blocks of the inode table */
 		blocks_per_group = super.s_blocks_per_group;
 		num_groups = (super.s_blocks_count + blocks_per_group - 1) / blocks_per_group;
-
+        inodes_per_group = super.s_inodes_per_group;
 		
 		if (debug)
 		{

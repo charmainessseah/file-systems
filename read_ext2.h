@@ -15,7 +15,7 @@ extern unsigned int inodes_per_block;			/* number of inodes per block */
 extern unsigned int itable_blocks;				/* size in blocks of the inode table */
 extern unsigned int blocks_per_group;		/* number of blocks per block group */
 extern unsigned int num_groups;				/* number of block groups in the image */
-
+extern unsigned int inodes_per_group;
 
 extern int debug;		//turn on/off debug prints
 
