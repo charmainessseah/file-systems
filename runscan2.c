@@ -49,7 +49,7 @@ FILE* make_file_inode_num(char *dir_name, int inode_num) {
     return fp;
 }
 
-int find_jpg_inodes(int jpg_inodes[], int fd) { 
+int find_jpg_inodes(int jpg_inodes[], int fd, int group_numbers[]) { 
     int num_jpg_inodes = 0;
     int inode_num = 1;
     for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
@@ -72,7 +72,8 @@ int find_jpg_inodes(int jpg_inodes[], int fd) {
                 if (buffer[0] == (char)0xff && buffer[1] == (char)0xd8 && buffer[2] == (char)0xff &&
                         (buffer[3] == (char)0xe0 || buffer[3] == (char)0xe1 || buffer[3] == (char)0xe8)) 
                 {
-                        jpg_inodes[num_jpg_inodes++] = inode_num;
+                        jpg_inodes[num_jpg_inodes] = inode_num;
+                        group_numbers[num_jpg_inodes++] = curr_group;
                 }    
             }
             inode_num++;
@@ -147,6 +148,36 @@ void print_filenames(char filenames[][EXT2_NAME_LEN], int jpg_inodes[], int size
     printf("\n");
 }
 
+int write_data(FILE *fp, int group_number) {
+printf("group num: %d\n", group_number);
+fputs("hello world", fp);
+/*    for(unsigned int i=0; i<EXT2_N_BLOCKS; i++) {
+        if (inode->i_block[i] == 0) {
+            break;
+        }
+        lseek(fd, BLOCK_OFFSET(inode->i_block[i]), SEEK_SET);
+        printf("iblock[%d] : %u\n", i, inode->i_block[i]);
+        //int result = read(fd,&buffer,block_size);
+        int result = snprintf(buffer, block_size, "%c", fd);
+        if (result == -1) {
+            printf("read error IBLOCK\n");
+        }
+        bytes += result;
+
+        //int results = fputs(buffer, fp);
+        int results = fwrite(buffer, sizeof(char), inode->i_size, fp);
+        if (results == EOF) {
+            printf("error writing result to file\n");
+            exit(1);
+        }
+
+    }
+    printf("bytes written: %d\n", bytes);
+    fclose(fp);
+*/
+return 1;
+}
+
 int main(int argc, char **argv) {
 	if (argc != 3) {
 		printf("expected usage: ./runscan inputfile outputfile\n");
@@ -174,16 +205,18 @@ int main(int argc, char **argv) {
     int total_inodes = num_groups * inodes_per_group;
     char filenames[total_inodes][EXT2_NAME_LEN];
     int jpg_inodes[total_inodes];
+    int group_numbers[total_inodes];
     for (int i = 0; i < total_inodes; i++) {
         jpg_inodes[i] = -1;
     }
-    int num_jpg_inodes = find_jpg_inodes(jpg_inodes, fd);
+    int num_jpg_inodes = find_jpg_inodes(jpg_inodes, fd, group_numbers);
     print_jpg_inode_array(jpg_inodes, num_jpg_inodes);
     find_filenames(filenames, jpg_inodes, num_jpg_inodes, fd);
     print_filenames(filenames, jpg_inodes, num_jpg_inodes);
 
     for (int index = 0; index < num_jpg_inodes; index++) {
         int inode_num = jpg_inodes[index];
+        int group_number = group_numbers[index];
         char filename[EXT2_NAME_LEN];
         strcpy(filename, filenames[inode_num - 1]);
         FILE *fp_inode = make_file_inode_num((char *)argv[2], inode_num);
@@ -195,6 +228,10 @@ int main(int argc, char **argv) {
             printf("fp_filename is null\n");
             exit(1);
         }
+        write_data(fp_inode, group_number);
+        write_data(fp_filename, group_number);
+        fclose(fp_inode);
+        fclose(fp_filename);
     }
     close(fd);
 }
