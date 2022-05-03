@@ -7,7 +7,24 @@
 #include <string.h>
 #include <math.h>
 
-FILE* make_file(char *dir_name, int inode_num) {
+FILE* make_file_filename(char *dir_name, char *filename) {
+    printf("dir name: %s len: %ld\n", dir_name, strlen(dir_name));
+    printf("filename: %s len: %ld\n", filename, strlen(filename));
+    char path_length = strlen(dir_name) + strlen(filename) + 1;
+    char path_name[path_length];
+    strcpy(path_name, dir_name);
+    strcat(path_name, "/");
+    strcat(path_name, filename);
+    printf("path name: %s\n", path_name);
+    FILE *fp = fopen(path_name, "w+");
+    if(fp == NULL)
+    {   
+        return NULL;
+    }
+    return fp;
+}
+
+FILE* make_file_inode(char *dir_name, int inode_num) {
     int num_digits = 0;
     int n = inode_num;
     do {
@@ -179,24 +196,6 @@ int main(int argc, char **argv) {
         for (unsigned int inode_num_group = 0; inode_num_group < inodes_per_group; inode_num_group++) {
             struct ext2_inode *inode = malloc(sizeof(struct ext2_inode));
             read_inode(fd, curr_group, inode_table, inode_num, inode);
-            //unsigned int i_blocks = inode->i_blocks/(2<<super.s_log_block_size);
-/*            printf("number of blocks %u\n", i_blocks);
-            printf("Is directory? %s \n Is Regular file? %s\n",
-                    S_ISDIR(inode->i_mode) ? "true" : "false",
-                    S_ISREG(inode->i_mode) ? "true" : "false");
-
-            // print i_block numberss
-            for(unsigned int i=0; i<EXT2_N_BLOCKS; i++)
-            {       if (i < EXT2_NDIR_BLOCKS)                                
-                printf("Block %2u : %u\n", i, inode->i_block[i]);
-                else if (i == EXT2_IND_BLOCK)                             
-                    printf("Single   : %u\n", inode->i_block[i]);
-                else if (i == EXT2_DIND_BLOCK)                            
-                    printf("Double   : %u\n", inode->i_block[i]);
-                else if (i == EXT2_TIND_BLOCK)                           
-                    printf("Triple   : %u\n", inode->i_block[i]);
-
-            } */
 
             char buffer[block_size];
             if (S_ISDIR(inode->i_mode)) {
@@ -224,8 +223,14 @@ int main(int argc, char **argv) {
                     is_jpg = 1;
                     jpg_file_count++; 
                     printf("is_jpg: %d, inode: %d, group: %d\n", is_jpg, inode_num,curr_group);
-                    FILE *fp = make_file((char *)argv[2], inode_num);
-                    if (fp == NULL) {
+                    FILE *fp_inode = make_file_inode((char *)argv[2], inode_num);
+                    if (fp_inode == NULL) {
+                        exit(1);
+                    }
+                    char filename[EXT2_NAME_LEN];
+                    strcpy(filename, filenames[inode_num -1]);
+                    FILE *fp_filename = make_file_filename((char *)argv[2], (char *)filename);
+                    if (fp_filename == NULL) {
                         exit(1);
                     }
                     unsigned int bytes_written = 0;
@@ -233,7 +238,6 @@ int main(int argc, char **argv) {
                     printf("ext2 n blocks: %u\n", EXT2_N_BLOCKS);
                     printf("inode file size: %u\n", inode->i_size);
                     for(unsigned int i=0; i<EXT2_N_BLOCKS; i++) {
-                        printf("1\n");
                         if (inode->i_block[i] == 0) {
                             printf("exit\n");
                             break;
@@ -253,7 +257,8 @@ int main(int argc, char **argv) {
                             count = bytes_remaining / sizeof(char);
                         }
                         //int results = fputs(buffer, fp);
-                        int results = fwrite(buffer, sizeof(char), count, fp);
+                        int results = fwrite(buffer, sizeof(char), count, fp_inode);
+                        fwrite(buffer, sizeof(char), count, fp_filename);
                         if (results == EOF) {
                             printf("error writing result to file\n");
                             exit(1);
@@ -264,7 +269,8 @@ int main(int argc, char **argv) {
                     }
                     printf("bytes written: %d\n", bytes_written);
                     printf("bytes that should be written: %d\n", inode->i_size);
-                    fclose(fp);
+                    fclose(fp_inode);
+                    fclose(fp_filename);
                 }
             }
             else {
