@@ -55,7 +55,6 @@ int find_jpg_inodes(int jpg_inodes[], int fd) {
                 if (buffer[0] == (char)0xff && buffer[1] == (char)0xd8 && buffer[2] == (char)0xff &&
                         (buffer[3] == (char)0xe0 || buffer[3] == (char)0xe1 || buffer[3] == (char)0xe8)) 
                 {
-                        
                         jpg_inodes[num_jpg_inodes++] = inode_num;
                 }    
             }
@@ -71,12 +70,10 @@ int is_target_inode(int jpg_inodes[], int num_jpg_inodes, int target_inode) {
             return 1;
         }
     }
-    return -1;
+    return 0;
 }
 
 void find_filenames(char filenames[][EXT2_NAME_LEN], int jpg_inodes[], int num_jpg_inodes, int fd) {
-    printf("FINDING FILENAMES\n");
-    printf("num groups: %d\n", num_groups);
     int inode_num = 0;
     for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
         struct ext2_super_block super;
@@ -89,44 +86,46 @@ void find_filenames(char filenames[][EXT2_NAME_LEN], int jpg_inodes[], int num_j
             read_inode(fd, curr_group, inode_table, inode_num, inode);
             char buffer[block_size];
             if (S_ISDIR(inode->i_mode)) {
-                printf("FINDING FILENAMES found a directory at inode num %d!\n", inode_num);
                 lseek(fd, BLOCK_OFFSET(inode->i_block[0]), SEEK_SET);
                 int res = read(fd,&buffer,block_size);
                 //int res = snprintf(buffer, block_size, "%s", fd); 
-                printf("1\n");
                 if (res == -1) {
                     exit(1);
                 }
-                printf("2\n");
-                printf("In find filenames - blocksize: %u\n", block_size);
                 unsigned int offset = 0;
                 while(offset <= block_size) {
                     struct ext2_dir_entry *dentry = (struct ext2_dir_entry*) & ( buffer[offset] );
                     int curr_inode_num = dentry->inode;
-                    if (is_target_inode(jpg_inodes, num_jpg_inodes, curr_inode_num) != -1) {
-                        printf("found a target inode\n");
+                    if (is_target_inode(jpg_inodes, num_jpg_inodes, curr_inode_num)) {
                         int name_len = dentry->name_len & 0xFF; // convert 2 bytes to 4 bytes properly
                         char name [EXT2_NAME_LEN];
                         strncpy(name, dentry->name, name_len);
                         name[name_len] = '\0';
-                        printf("OFFSET: %d, INODE: %d NAME LEN:%d\n", offset, curr_inode_num, name_len);
-                        printf("Entry name is --%s--\n", name);
+                        //printf("OFFSET: %d, INODE: %d NAME LEN:%d\n", offset, curr_inode_num, name_len);
+                        //printf("Entry name is --%s--\n", name);
+                        strcpy(filenames[curr_inode_num - 1], name);
                     } 
-                    //     offset += dentry->rec_len;
-                offset += 1;
+                    offset += 1;
                 }
             }
             inode_num++;
         }
     }
-    printf("filename index 0 : %s\n", filenames[0]);
-    printf("FINISHED FINDING ALL FILENAMES\n");
 }
 
 void print_jpg_inode_array(int jpg_inodes[], int size) {
     printf("jpg inodes: ");
     for (int i = 0; i < size; i++) {
         printf("%d ", jpg_inodes[i]);
+    }
+    printf("\n");
+}
+
+void print_filenames(char filenames[][EXT2_NAME_LEN], int jpg_inodes[], int size) {
+    printf("ALL FILENAMES: ");
+    for (int i = 0; i < size; i++) {
+        int inode_num = jpg_inodes[i];
+        printf("%s ", filenames[inode_num - 1]);
     }
     printf("\n");
 }
@@ -169,6 +168,7 @@ int main(int argc, char **argv) {
     int num_jpg_inodes = find_jpg_inodes(jpg_inodes, fd);
     print_jpg_inode_array(jpg_inodes, num_jpg_inodes);
     find_filenames(filenames, jpg_inodes, num_jpg_inodes, fd);
+    print_filenames(filenames, jpg_inodes, num_jpg_inodes);
     for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
         printf("curr group: %d\n", curr_group);
         struct ext2_super_block super;
