@@ -24,7 +24,7 @@ FILE* make_file(char *dir_name, int inode_num) {
     strcat(path_name, "/file-");
     strcat(path_name, inode_str);
     strcat(path_name, ".jpg");  
-    FILE *fp = fopen(path_name, "w+");
+    FILE *fp = fopen(path_name, "a");
     if(fp == NULL)
     {
         return NULL;
@@ -228,29 +228,42 @@ int main(int argc, char **argv) {
                     if (fp == NULL) {
                         exit(1);
                     }
-                    int bytes = 0;
+                    unsigned int bytes_written = 0;
+                    unsigned int target_bytes = inode->i_size;
+                    printf("ext2 n blocks: %u\n", EXT2_N_BLOCKS);
+                    printf("inode file size: %u\n", inode->i_size);
                     for(unsigned int i=0; i<EXT2_N_BLOCKS; i++) {
+                        printf("1\n");
                         if (inode->i_block[i] == 0) {
+                            printf("exit\n");
                             break;
                         }
+                        //off_t offset = BLOCK_OFFSET(inode->i_block[i]);
                         lseek(fd, BLOCK_OFFSET(inode->i_block[i]), SEEK_SET);
                         printf("iblock[%d] : %u\n", i, inode->i_block[i]);
-                        //int result = read(fd,&buffer,block_size);
-                        int result = snprintf(buffer, block_size, "%c", fd);
+                        int result = read(fd,&buffer, block_size);
+                        //int result = snprintf(buffer, block_size, "%c", fd);
                         if (result == -1) {
                             printf("read error IBLOCK\n");
                         }
-                        bytes += result;
-                       
+                        
+                        unsigned int bytes_remaining = target_bytes - bytes_written;
+                        int count = block_size / sizeof(char);
+                        if (bytes_remaining < block_size) {
+                            count = bytes_remaining / sizeof(char);
+                        }
                         //int results = fputs(buffer, fp);
-                        int results = fwrite(buffer, sizeof(char), inode->i_size, fp);
+                        int results = fwrite(buffer, sizeof(char), count, fp);
                         if (results == EOF) {
                             printf("error writing result to file\n");
                             exit(1);
                         }
+                        bytes_written += results;
+                        printf("bytes written so far: %d\n", bytes_written);
 
                     }
-                    printf("bytes written: %d\n", bytes);
+                    printf("bytes written: %d\n", bytes_written);
+                    printf("bytes that should be written: %d\n", inode->i_size);
                     fclose(fp);
                 }
             }
