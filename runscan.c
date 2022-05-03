@@ -243,11 +243,53 @@ int main(int argc, char **argv) {
                             printf("exit\n");
                             break;
                         }
-                        if (i == 12) {
+
+			
+			if(i == 13){
+				lseek(fd, BLOCK_OFFSET(curr_group * blocks_per_group + inode->i_block[i]), SEEK_SET); 
+				unsigned int double_indirect_block_number[256]; 
+				read(fd, &double_indirect_block_number, 256*4); 
+				for(int index = 0; index < 256; index++){
+					unsigned int data_block_num = double_indirect_block_number[index]; 
+					lseek(fd, BLOCK_OFFSET(curr_group * blocks_per_group + data_block_num), SEEK_SET);
+					unsigned int ptrs[256];
+
+					read(fd,&ptrs, 256*4);
+					for (int index = 0; index < 256; index++) {
+						unsigned int data_block_num = ptrs[index];
+						lseek(fd, BLOCK_OFFSET(curr_group * blocks_per_group + data_block_num), SEEK_SET);
+						int result = read(fd,&buffer, block_size);
+						if (result == -1) {
+							printf("read error IBLOCK\n");
+						}
+
+						unsigned int bytes_remaining = target_bytes - bytes_written;
+						int count = block_size / sizeof(char);
+						if (bytes_remaining < block_size) {
+							count = bytes_remaining / sizeof(char);
+						}
+						//int results = fputs(buffer, fp);
+						int results = fwrite(buffer, sizeof(char), count, fp_inode);
+						fwrite(buffer, sizeof(char), count, fp_filename);
+						if (results == EOF) {
+							printf("error writing result to file\n");
+							exit(1);
+						}
+						bytes_written += results;
+						printf("bytes written so far: %d\n", bytes_written);
+
+					}	
+
+				}
+
+
+			}
+				
+			else if (i == 12) {
                             printf("BLOCK 12!!! inode iblock[12]: %u\n", inode->i_block[i]);
                             lseek(fd, BLOCK_OFFSET(curr_group * blocks_per_group + inode->i_block[i]), SEEK_SET);
                             unsigned int ptrs[256];
-                            read(fd, &ptrs, 256);
+                            read(fd, &ptrs, 256*4);
                             for (int index = 0; index < 256; index++) {
                                 unsigned int data_block_num = ptrs[index];
                                 lseek(fd, BLOCK_OFFSET(curr_group * blocks_per_group + data_block_num), SEEK_SET);
