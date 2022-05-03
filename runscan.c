@@ -7,7 +7,6 @@
 #include <string.h>
 #include <math.h>
 
-
 FILE* make_file(char *dir_name, int inode_num) {
     int num_digits = 0;
     int n = inode_num;
@@ -32,6 +31,62 @@ FILE* make_file(char *dir_name, int inode_num) {
     }
     return fp;
 }
+/*
+void find_deleted_inodes(int inode_numbers[], int fd) { 
+    int num_deleted_inodes = 0;
+    
+
+}
+*/
+
+void find_filenames(char filenames[][EXT2_NAME_LEN], int fd) {
+    printf("FINDING FILENAMES\n");
+    printf("num groups: %d\n", num_groups);
+    int inode_num = 0;
+    for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
+        struct ext2_super_block super;
+        struct ext2_group_desc group;
+        read_super_block(fd, curr_group, &super);
+        read_group_desc(fd, curr_group, &group);
+        off_t inode_table = locate_inode_table(curr_group, &group);
+        for (unsigned int inode_num_group = 0; inode_num_group < inodes_per_group; inode_num_group++) {
+            struct ext2_inode *inode = malloc(sizeof(struct ext2_inode));
+            read_inode(fd, curr_group, inode_table, inode_num, inode);
+            char buffer[block_size];
+            if (S_ISDIR(inode->i_mode)) {
+                printf("FINDING FILENAMES found a directory at inode num %d!\n", inode_num);
+                lseek(fd, BLOCK_OFFSET(inode->i_block[0]), SEEK_SET);
+                int res = read(fd,&buffer,block_size);
+                //int res = snprintf(buffer, block_size, "%s", fd); 
+                printf("1\n");
+                if (res == -1) {
+                    exit(1);
+                }
+                printf("2\n");
+                printf("In find filenames - blocksize: %u\n", block_size);
+                unsigned int offset = 0;
+                while(offset <= block_size) {
+                    struct ext2_dir_entry *dentry = (struct ext2_dir_entry*) & ( buffer[offset] );
+
+                    int name_len = dentry->name_len & 0xFF; // convert 2 bytes to 4 bytes properly
+                    int curr_inode_num = dentry->inode;
+                    char name [EXT2_NAME_LEN];
+                    strncpy(name, dentry->name, name_len);
+                    name[name_len] = '\0';
+                    
+                        printf("OFFSET: %d, INODE: %d NAME LEN:%d\n", offset, curr_inode_num, name_len);
+                        printf("Entry name is --%s--\n", name);
+               //     offset += dentry->rec_len;
+                offset += 1;
+                }
+            }
+            inode_num++;
+        }
+    }
+    printf("filename index 0 : %s\n", filenames[0]);
+    printf("FINISHED FINDING ALL FILENAMES\n");
+}
+
 
 int main(int argc, char **argv) {
 	if (argc != 3) {
@@ -61,6 +116,10 @@ int main(int argc, char **argv) {
     unsigned int inode_num = 1;
     int regular_file_count = 0; 
     int jpg_file_count = 0; 
+    // TO STORE FILENAMES
+    int total_inodes = num_groups * inodes_per_group;
+    char filenames[total_inodes][EXT2_NAME_LEN];
+    find_filenames(filenames, fd);
     for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
         printf("curr group: %d\n", curr_group);
         struct ext2_super_block super;
@@ -68,7 +127,6 @@ int main(int argc, char **argv) {
         read_super_block(fd, curr_group, &super);
         read_group_desc(fd, curr_group, &group);      
         off_t inode_table = locate_inode_table(curr_group, &group);
-        // we should get file names first
         for (unsigned int inode_num_group = 0; inode_num_group < inodes_per_group; inode_num_group++) {
             struct ext2_inode *inode = malloc(sizeof(struct ext2_inode));
             read_inode(fd, curr_group, inode_table, inode_num, inode);
@@ -93,6 +151,7 @@ int main(int argc, char **argv) {
 
             char buffer[block_size];
             if (S_ISDIR(inode->i_mode)) {
+                printf("found a directory at inode num %d!\n", inode_num);
                 lseek(fd, BLOCK_OFFSET(inode->i_block[0]), SEEK_SET);
                 int res = read(fd,&buffer,block_size);
                 //int res = snprintf(buffer, block_size, "%s", fd); 
@@ -120,16 +179,20 @@ int main(int argc, char **argv) {
                     if (fp == NULL) {
                         exit(1);
                     }
+                    int bytes = 0;
                     for(unsigned int i=0; i<EXT2_N_BLOCKS; i++) {
                         if (inode->i_block[i] == 0) {
                             break;
                         }
                         lseek(fd, BLOCK_OFFSET(inode->i_block[i]), SEEK_SET);
                         printf("iblock[%d] : %u\n", i, inode->i_block[i]);
-                        int result = read(fd,&buffer,block_size);
+                        //int result = read(fd,&buffer,block_size);
+                        int result = snprintf(buffer, block_size, "%c", fd);
                         if (result == -1) {
                             printf("read error IBLOCK\n");
                         }
+                        bytes += result;
+                       
                         //int results = fputs(buffer, fp);
                         int results = fwrite(buffer, sizeof(char), inode->i_size, fp);
                         if (results == EOF) {
@@ -138,6 +201,7 @@ int main(int argc, char **argv) {
                         }
 
                     }
+                    printf("bytes written: %d\n", bytes);
                     fclose(fp);
                 }
             }
