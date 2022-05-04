@@ -9,12 +9,16 @@
 
 FILE* make_file_filename(char *dir_name, char *filename) {
 	printf("dir name: %s len: %ld\n", dir_name, strlen(dir_name));
-	printf("filename: %s len: %ld\n", filename, strlen(filename));
-	char path_length = strlen(dir_name) + strlen(filename) + 1;
-	char path_name[path_length];
-	strcpy(path_name, dir_name);
+    printf("filename: %s len: %ld\n", filename, strlen(filename));
+	int path_length = strlen(dir_name) + strlen(filename) + 1;
+	printf("1\n");
+    char path_name[path_length];
+	 printf("2\n");
+    strcpy(path_name, dir_name);
+     printf("3\n");
 	strcat(path_name, "/");
-	strcat(path_name, filename);
+	 printf("4\n");
+    strcat(path_name, filename);
 	printf("path name: %s\n", path_name);
 	FILE *fp = fopen(path_name, "w+");
 	if(fp == NULL)
@@ -90,7 +94,7 @@ int is_target_inode(int jpg_inodes[], int num_jpg_inodes, int target_inode) {
 	return 0;
 }
 
-void find_filenames(char filenames[][EXT2_NAME_LEN], int jpg_inodes[], int num_jpg_inodes, int fd) {
+void find_filenames(char filenames[][EXT2_NAME_LEN + 1], int jpg_inodes[], int num_jpg_inodes, int fd) {
 	int inode_num = 0;
 	for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
 		struct ext2_super_block super;
@@ -138,11 +142,11 @@ void print_jpg_inode_array(int jpg_inodes[], int size) {
 	printf("\n");
 }
 
-void print_filenames(char filenames[][EXT2_NAME_LEN], int jpg_inodes[], int size) {
-	printf("ALL FILENAMES: ");
+void print_filenames(char filenames[][EXT2_NAME_LEN + 1], int jpg_inodes[], int size) {
+	printf("ALL FILENAMES %d\n", size);
 	for (int i = 0; i < size; i++) {
 		int inode_num = jpg_inodes[i];
-		printf("%s ", filenames[inode_num - 1]);
+		printf("inode: %d , filename: %s\n", inode_num, filenames[inode_num - 1]);
 	}
 	printf("\n");
 }
@@ -176,7 +180,7 @@ int main(int argc, char **argv) {
 	int regular_file_count = 0; 
 	int jpg_file_count = 0; 
 	int total_inodes = num_groups * inodes_per_group;
-	char filenames[total_inodes][EXT2_NAME_LEN];
+	char filenames[total_inodes][EXT2_NAME_LEN + 1];
 	int jpg_inodes[total_inodes];
 	for (int i = 0; i < total_inodes; i++) {
 		jpg_inodes[i] = -1;
