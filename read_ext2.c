@@ -13,6 +13,7 @@ unsigned int blocks_per_group = 0;
 unsigned int num_groups = 0;
 unsigned int inodes_per_group = 0;
 
+
 int debug = 1;          //turn on/off debug prints
 
 /* read the first super block to initialize common variables */
@@ -32,7 +33,8 @@ void ext2_read_init( int                      fd)
 		itable_blocks = super.s_inodes_per_group / inodes_per_block;		/* size in blocks of the inode table */
 		blocks_per_group = super.s_blocks_per_group;
 		num_groups = (super.s_blocks_count + blocks_per_group - 1) / blocks_per_group;
-        inodes_per_group = super.s_inodes_per_group;
+		inodes_per_group = super.s_inodes_per_group;
+
 		
 		if (debug)
 		{
@@ -53,12 +55,61 @@ void ext2_read_init( int                      fd)
 		
 }
 
+int isPowerOf(int m, int n) 
+{
+    while (m != 1) 
+	{
+		if (m % n != 0)
+			return 0;
+        else
+			m /= n;
+    }
+
+    return 1;
+}
+
+//how many powers of n are below m?
+int powersBelow(int m, int n) 
+{
+	int cnt = 0;
+    while (m != 1) 
+	{
+		if (m % n != 0)
+			return cnt;
+        m /= n;
+		cnt++;
+    }
+
+    return cnt;
+}
+
 /* read the first super block; for this project, you will only deal with the first block group */
-void read_super_block( int                      fd,        /* the disk image file descriptor */
+int read_super_block( int                      fd,        /* the disk image file descriptor */
 					   int                      ngroup,        /* which block group to access */
 					   struct ext2_super_block *super      /* where to put the super block */
 						)
 {
+	// The groups that have copies of a super block are 0, 1 and powers of 3, 5 and 7
+    if (ngroup != 0 &&
+		ngroup != 1 &&
+		!isPowerOf(ngroup, 3) &&
+		!isPowerOf(ngroup, 5) &&
+		!isPowerOf(ngroup, 7) 
+		)
+		{
+			if (debug)
+				printf("this block does not contain a super block copy");
+			return -1;
+		}
+
+		/*int num_no_super_copy_blocks = 0;
+		num_no_super_copy_blocks+=(ngroup > 0 ? 1 : 0);
+		num_no_super_copy_blocks+=(ngroup > 1 ? 1 : 0);
+		num_no_super_copy_blocks+=powersBelow(ngroup,3);
+		num_no_super_copy_blocks+=powersBelow(ngroup,5);
+		num_no_super_copy_blocks+=powersBelow(ngroup,7);*/
+    
+	
 	    lseek(fd, BASE_OFFSET + BLOCK_OFFSET(blocks_per_group * ngroup), SEEK_SET);        /* position head above super-block */
         read(fd, super, sizeof(struct ext2_super_block));              /* read super-block */
 
@@ -96,6 +147,8 @@ void read_super_block( int                      fd,        /* the disk image fil
 		
 		inodes_per_block = block_size / sizeof(struct ext2_inode);		/* number of inodes per block */
 		itable_blocks = super->s_inodes_per_group / inodes_per_block;		/* size in blocks of the inode table */
+		
+		return 0;
 }
 
 /* Read the first group-descriptor in the first block group; you will not be tested with a disk image with more than one block group */
@@ -104,12 +157,24 @@ void read_group_desc( int                      fd,        /* the disk image file
 		      struct ext2_group_desc *group     /* where to put the group-descriptor */
 					)
 {
-		lseek(fd, BASE_OFFSET + BLOCK_OFFSET(blocks_per_group * ngroup) + block_size, SEEK_SET);
+		if (ngroup != 0 &&
+		ngroup != 1 &&
+		isPowerOf(ngroup, 3) &&
+		isPowerOf(ngroup, 5) &&
+		isPowerOf(ngroup, 7) 
+		)
+		{
+			lseek(fd, BASE_OFFSET + BLOCK_OFFSET(blocks_per_group * ngroup), SEEK_SET);
+		}
+		else
+		{
+			lseek(fd, BASE_OFFSET + BLOCK_OFFSET(blocks_per_group * ngroup) + block_size, SEEK_SET);
+		}
         read(fd, group, sizeof(struct ext2_group_desc));
 
 		if (debug)
 		{
-			printf("Reading first group-descriptor from device:\n"
+			printf("Reading group-descriptor from device:\n"
 				   "Blocks bitmap block: %u\n"
 				   "Inodes bitmap block: %u\n"
 				   "Inodes table block : %u\n"
@@ -141,14 +206,15 @@ off_t locate_data_blocks( int ngroup, const struct ext2_group_desc *group      /
 }
 
 void read_inode(fd, ngroup, offset, inode_no, inode)
-//	 int 							ngroup;
      int                            fd;        /* the floppy disk file descriptor */
-     int 							ngroup;
+	 int 							ngroup;
      off_t 			   				offset;    /* offset to the start of the inode table */
      int                            inode_no;  /* the inode number to read  */
      struct ext2_inode             *inode;     /* where to put the inode */
 {
-        lseek(fd, BLOCK_OFFSET(blocks_per_group * ngroup) + offset + (inode_no-1)*sizeof(struct ext2_inode), SEEK_SET);
+        //lseek(fd, offset + (inode_no-1)*sizeof(struct ext2_inode), SEEK_SET);
+        //read(fd, inode, sizeof(struct ext2_inode));
+	lseek(fd, BLOCK_OFFSET(blocks_per_group * ngroup) + offset + (inode_no-1)*sizeof(struct ext2_inode), SEEK_SET);
         read(fd, inode, sizeof(struct ext2_inode));
 }
 

@@ -23,7 +23,7 @@ extern int debug;		//turn on/off debug prints
 void ext2_read_init( int                      fd);
 
 /* read the specified super block */
-void read_super_block( int                      fd,        /* the disk image file descriptor */
+int read_super_block( int                      fd,        /* the disk image file descriptor */
 					   int                      ngroup,        /* which block group to access */
 					  struct ext2_super_block *super      /* where to put the super block */
 					  );
