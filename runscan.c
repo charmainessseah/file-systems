@@ -94,8 +94,18 @@ int is_target_inode(int jpg_inodes[], int num_jpg_inodes, int target_inode) {
 	return 0;
 }
 
-void find_filenames(char filenames[][EXT2_NAME_LEN + 1], int jpg_inodes[], int num_jpg_inodes, int fd) {
-	int inode_num = 0;
+int already_found(int found_inodes[], int size, int inode) {
+    for (int i = 0; i < size; i++) {
+        if (found_inodes[i] == inode) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void find_filenames(char filenames[][EXT2_NAME_LEN + 1], int jpg_inodes[], int num_jpg_inodes, int fd, int found_inodes[]) {
+    int inode_num = 1;
+    int found_size = 0;
 	for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
 		struct ext2_super_block super;
 		struct ext2_group_desc group;
@@ -118,14 +128,20 @@ void find_filenames(char filenames[][EXT2_NAME_LEN + 1], int jpg_inodes[], int n
 					struct ext2_dir_entry *dentry = (struct ext2_dir_entry*) & ( buffer[offset] );
 					int curr_inode_num = dentry->inode;
 					if (is_target_inode(jpg_inodes, num_jpg_inodes, curr_inode_num)) {
-						int name_len = dentry->name_len & 0xFF; // convert 2 bytes to 4 bytes properly
-						char name [EXT2_NAME_LEN];
+					printf("inode: %d offset: %d blocksize: %d group num: %d ", curr_inode_num,offset, block_size, curr_group);
+                    	if (already_found(found_inodes, found_size, curr_inode_num)) {
+                            break;
+                        }
+                        int name_len = dentry->name_len & 0xFF; // convert 2 bytes to 4 bytes properly
+						char name [EXT2_NAME_LEN + 1];
 						strncpy(name, dentry->name, name_len);
 						name[name_len] = '\0';
 						//printf("OFFSET: %d, INODE: %d NAME LEN:%d\n", offset, curr_inode_num, name_len);
 						//printf("Entry name is --%s--\n", name);
+                        printf("file name length: %d filename: %s\n", name_len, name);
 						strcpy(filenames[curr_inode_num - 1], name);
-					} 
+                        found_inodes[found_size++] = curr_inode_num;
+                    } 
 					offset += 1;
 				}
 			}
@@ -182,12 +198,13 @@ int main(int argc, char **argv) {
 	int total_inodes = num_groups * inodes_per_group;
 	char filenames[total_inodes][EXT2_NAME_LEN + 1];
 	int jpg_inodes[total_inodes];
+    int found_filename_inodes[total_inodes];
 	for (int i = 0; i < total_inodes; i++) {
 		jpg_inodes[i] = -1;
 	}
 	int num_jpg_inodes = find_jpg_inodes(jpg_inodes, fd);
 	print_jpg_inode_array(jpg_inodes, num_jpg_inodes);
-	find_filenames(filenames, jpg_inodes, num_jpg_inodes, fd);
+	find_filenames(filenames, jpg_inodes, num_jpg_inodes, fd, found_filename_inodes);
 	print_filenames(filenames, jpg_inodes, num_jpg_inodes);
 	for (unsigned int curr_group = 0; curr_group < num_groups; curr_group++) {
 		printf("curr group: %d\n", curr_group);
