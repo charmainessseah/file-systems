@@ -128,12 +128,19 @@ void find_filenames(char filenames[][EXT2_NAME_LEN + 1], int jpg_inodes[], int n
 					struct ext2_dir_entry *dentry = (struct ext2_dir_entry*) & ( buffer[offset] );
 					int curr_inode_num = dentry->inode;
 					if (is_target_inode(jpg_inodes, num_jpg_inodes, curr_inode_num)) {
-					printf("inode: %d offset: %d blocksize: %d group num: %d ", curr_inode_num,offset, block_size, curr_group);
-                    	if (already_found(found_inodes, found_size, curr_inode_num)) {
-                            break;
-                        }
+                    //	if (already_found(found_inodes, found_size, curr_inode_num)) {
+                     //       break;
+                     //   }
+                        printf("inode: %d offset: %d blocksize: %d group num: %d\n", curr_inode_num,offset, block_size, curr_group);
                         int name_len = dentry->name_len & 0xFF; // convert 2 bytes to 4 bytes properly
-						char name [EXT2_NAME_LEN + 1];
+					    if (name_len == 0) {
+                            offset += 1;
+                            continue;
+                        }
+                        if (already_found(found_inodes, found_size, curr_inode_num)) {
+                             break;
+                         }
+                    	char name [EXT2_NAME_LEN + 1];
 						strncpy(name, dentry->name, name_len);
 						name[name_len] = '\0';
 						//printf("OFFSET: %d, INODE: %d NAME LEN:%d\n", offset, curr_inode_num, name_len);
